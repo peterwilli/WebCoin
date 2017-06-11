@@ -19,7 +19,10 @@ module.exports = {
           checkpoint.validateCheckpoint(data.packet, data.signature)
         }
         else if(cmd === 'icc') {
-          checkpoint.importConsensusCheckpointFromPeersByHash(data.packet)
+          checkpoint.importConsensusCheckpointFromPeers(data.packet)
+        }
+        else if(cmd === 'rcc') {
+          checkpoint.requestConsensusCheckpoint(conn, data.packet)
         }
       })
     })

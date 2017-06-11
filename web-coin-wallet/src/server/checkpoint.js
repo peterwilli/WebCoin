@@ -11,6 +11,7 @@ var consensusCheckpointIndex = {}
 var transactionsForNextConsensusCheckpoint = {}
 var stakingInterval = -1
 var exportedCheckpoint = null
+var winningCheckpointHash = null
 
 var validateTransactionAgainstConsensusCheckpoint = (ts, transactionFrom, index) => {
   var { transaction, from } = transactionFrom
@@ -95,14 +96,14 @@ var validationHashesCheck = () => {
   if(exportedCheckpointHash === winningCheckpointHash) {
     // set checkpoint now
     importConsensusCheckpoint(exportedCheckpoint)
-    // send iic-command
-    server.broadcast({
-      cmd: 'icc',
-      packet: `${hash}|${hashVotes.join("|")}`
-    })
   }
   else {
-    // We were wrong.... In this case, we just get the latest consensus checkpoint when icc triggers :)
+    // We were wrong (or we had an old checkpoint because wallet was offline)
+    // Ask for the full balance list matching the winning hash
+    server.broadcast({
+      cmd: 'rcc',
+      packet: winningCheckpointHash
+    })
   }
 }
 
@@ -135,10 +136,18 @@ var stakeCheck = () => {
 }
 
 export default {
-  importConsensusCheckpointFromPeersByHash(packet) {
-    var split = packet.split("|")
-    var hash = split[0]
-    var voters = split.slice(1, split.length)
+  requestConsensusCheckpoint(conn, hash) {
+    conn.send({
+      cmd: 'icc',
+      packet: consensusCheckpoint
+    })
+  },
+  importConsensusCheckpointFromPeers(packet) {
+    var hash = crypto.createHash('sha256').update(packet).digest('hex')
+    if(hash === winningCheckpointHash) {
+      // This is the one
+      importConsensusCheckpoint(packet)
+    }
   },
   enableStaking(staking) {
     if(staking) {
