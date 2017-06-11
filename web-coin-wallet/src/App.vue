@@ -18,10 +18,13 @@
 
 <script>
 import Wallet from "@/wallet/Wallet"
+
+const config = require("@/config")
+const log = require("@/log")
 const server = require("@/server/main")
 const checkpoint = require("@/server/checkpoint").default
 // Test
-checkpoint.importConsensusCheckpoint("04e6c8420be50a8976c02876f4e6ab19d1697ae6f9672506875fe8d398ff7d14fb84acf0853e5937248d52a073da52063dcc8868bf3156ac77cc1f5dcf9c5b4760:1000000")
+checkpoint.importConsensusCheckpoint("04e6c8420be50a8976c02876f4e6ab19d1697ae6f9672506875fe8d398ff7d14fb84acf0853e5937248d52a073da52063dcc8868bf3156ac77cc1f5dcf9c5b4760:" + config.totalCoins)
 
 export default {
   name: 'app',

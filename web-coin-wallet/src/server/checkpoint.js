@@ -11,10 +11,36 @@ var consensusCheckpointIndex = {}
 var transactionsForNextConsensusCheckpoint = {}
 var stakingInterval = -1
 
-var validateTransactionAgainstConsensusCheckpoint = (transactionFrom, index) => {
+var validateTransactionAgainstConsensusCheckpoint = (ts, transactionFrom, index) => {
   var { transaction, from } = transactionFrom
-  index[from].balance -= transaction[1]
-  index[transaction[0]].balance += transaction[1]
+
+  // It needs to fall in this interval, if it does not, then we discard the transaction
+  if(transaction[2] < ts && transaction[2] >= (ts - config.stakingInterval)) {
+    // TODO: export this
+    if(index[transaction[0]] === undefined) {
+      index[transaction[0]] = { balance: 0 }
+    }
+    index[from].balance -= transaction[1]
+    index[transaction[0]].balance += transaction[1]
+  }
+}
+
+var newConsensusCheckpointIndex = (index) => {
+  for(key in index) {
+    var obj = index[key]
+    if(obj.balance === 0) {
+      // We don't need to remember the pubkey or balance of a 0-balance wallet.
+      delete index[key]
+    }
+  }
+}
+
+var exportCheckpoint = (index) => {
+  rows = []
+  for(key in index) {
+    var obj = index[key]
+    rows.push(obj)
+  }
 }
 
 var stakeCheck = () => {
@@ -24,12 +50,19 @@ var stakeCheck = () => {
     // Note that we don't have to sort here, since the order of the transactions don't matter.
     // As you can't send money you received from another party until after the next consensus checkpoint.
     // So all transactions in 1 checkpoint are all independent.
-    var newCnsensusCheckpointIndex = Object.assign({}, consensusCheckpointIndex)
+    var newConsensusCheckpointIndex = Object.assign({}, consensusCheckpointIndex)
     for(key in transactionsForNextConsensusCheckpoint) {
       // 0: to, 1: amount, 2: timestamp
       var transactionFrom = transactionsForNextConsensusCheckpoint[key]
-      validateTransactionAgainstConsensusCheckpoint(transactionFrom, newCnsensusCheckpointIndex)
+      validateTransactionAgainstConsensusCheckpoint(ts, transactionFrom, newConsensusCheckpointIndex)
     }
+
+    // Remove all pending transactions
+    transactionsForNextConsensusCheckpoint = {}
+
+    removeAnyZeroBalances(newConsensusCheckpointIndex)
+    var exportedCheckpoint = exportCheckpoint(newConsensusCheckpointIndex)
+    voteConsensusCheckpoint(exportedCheckpoint)
   }
 }
 
