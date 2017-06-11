@@ -1,18 +1,23 @@
 <template>
   <div id="app">
-    <img src="./assets/logo.png">
-    <router-view></router-view>
+    <input type="button" @click="testPay()" value="test pay" />
   </div>
 </template>
 
 <script>
 import Wallet from "@/wallet/Wallet"
 const server = require("@/server/main")
+var wallet = null;
 
 export default {
   name: 'app',
+  methods: {
+    testPay() {
+      wallet.pay("todo", 10)
+    }
+  },
   mounted() {
-    var wallet = Wallet.load("/home/peter/wallets/wallet1.dat")
+    wallet = Wallet.load("/home/peter/wallets/wallet1.dat")
     server.start()
   }
 }

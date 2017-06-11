@@ -1,9 +1,16 @@
 const loader = require("./loader")
 const generator = require("./generator")
+const payment = require('./payment')
+
+const fs = require("fs")
 
 class Wallet {
   constructor(key) {
     this.key = key;
+  }
+
+  pay(to, amount) {
+    payment(this, to, amount)
   }
 
   save(path) {
