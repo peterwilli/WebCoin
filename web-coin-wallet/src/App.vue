@@ -6,13 +6,13 @@
 </template>
 
 <script>
-const wallet = require("@/wallet/main").default
+import Wallet from "@/wallet/Wallet"
 const server = require("@/server/main")
 
 export default {
   name: 'app',
   mounted() {
-    var loadedWallet = new wallet.Wallet(wallet.loader("/home/peter/wallets/wallet1.dat"))
+    var wallet = Wallet.load("/home/peter/wallets/wallet1.dat")
     server.start()
   }
 }
