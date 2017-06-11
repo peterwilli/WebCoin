@@ -15,7 +15,7 @@ class Wallet {
   }
 
   getAddress() {
-    return crypto.createHash('sha256').update(new Buffer(this.getPublicKey(), "hex")).digest('base64');
+    return Wallet.addressFromPubKey(this.getPublicKey())
   }
 
   getPublicKey() {
@@ -34,6 +34,10 @@ class Wallet {
 
         console.log("The file was saved!");
     });
+  }
+
+  static addressFromPubKey(pubKey) {
+    return crypto.createHash('sha256').update(new Buffer(pubKey, "hex")).digest('base64')
   }
 
   static generate() {
