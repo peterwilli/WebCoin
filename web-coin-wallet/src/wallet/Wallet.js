@@ -26,6 +26,11 @@ class Wallet {
     return new Buffer(this.key.sign(hash).toDER()).toString("hex")
   }
 
+  signMessage(msg) {
+    var hash = crypto.createHash('sha256').update(msg).digest('hex')
+    return new Buffer(this.key.sign(hash).toDER()).toString("hex")
+  }
+
   save(path) {
     fs.writeFile(path, new Buffer(this.key.getPrivate().toJSON(), "hex"), function(err) {
         if(err) {

@@ -44,19 +44,22 @@ var exportCheckpoint = (ts, index) => {
     if(a.from > b.from)
       return -1
     if(a.from < b.from)
-      return -1
+      return 1
     return 0
   })
   return `${(ts - config.stakingInterval)}-${ts}|${rows.join("\n")}`
 }
 
-var voteConsensusCheckpoint = (wallet, exportedCheckpoint) => {
-  var interval = `${(ts - config.stakingInterval)}-${ts}`
+var validateCheckpoint = (checkpoint, signature) => {
+  var hash = checkpoint
+  // TODO: find out a way to make sure what to do with boggled up checkpoints
+}
+
+var voteConsensusCheckpoint = (exportedCheckpoint) => {
   var hash = crypto.createHash('sha256').update(exportedCheckpoint).digest('hex');
-  var signature = wallet.signHash(hash);
   server.broadcast({
     cmd: 'vcc',
-    packet: `${hash}|${wallet.getAddress()}|${signature}`
+    packet: `${hash}`
   })
 }
 

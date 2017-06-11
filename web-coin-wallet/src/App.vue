@@ -39,6 +39,7 @@ export default {
     changeWallet(e) {
       var path = e.target.files[0].path
       this.wallet = Wallet.load(path)
+      server.setWallet(this.wallet)
     },
     testPay() {
       this.wallet.pay("todo", 10)

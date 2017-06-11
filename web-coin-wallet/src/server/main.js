@@ -14,7 +14,7 @@ module.exports = {
           checkpoint.recordPayment(data.packet)
         }
         else if(cmd === 'vcc') {
-          
+          checkpoint.validateCheckpoint(data.packet, data.signature)
         }
       })
     })
@@ -24,11 +24,21 @@ module.exports = {
     })
   },
   broadcast(msg) {
+    if(this.wallet === undefined) {
+      throw new Error("Wallet not found!")
+    }
+    if((msg.cmd === undefined || msg.packet === undefined) || Object.keys(msg).length > 2) {
+      throw new Error("A message only should have 2 keys: packet and cmd")
+    }
+    msg.signature = `${this.wallet.getAddress()}:${this.wallet.signMessage(msg.cmd + "|" + msg.packet)}`
     for(var i in this.peers) {
       var peer = this.peers[i]
       peer.conn.send(msg)
     }
   },
+  setWallet (wallet) {
+    this.wallet = wallet
+  }
   start() {
     this.peer = new Peer({ key: '4rvj8mvhtbq8semi' })
     this.peer.on('open', (id) => {
