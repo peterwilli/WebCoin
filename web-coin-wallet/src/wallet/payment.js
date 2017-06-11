@@ -8,6 +8,8 @@ module.exports = (wallet, to, amount) => {
   var hash = crypto.createHash('sha256').update(transaction).digest('hex');
   var signature = wallet.signHash(hash);
   var packet = `${transaction}|${wallet.getAddress()}|${signature}`
-  console.log(packet);
-  server.broadcast(packet)
+  server.broadcast({
+    cmd: 'payment',
+    packet: packet
+  })
 }

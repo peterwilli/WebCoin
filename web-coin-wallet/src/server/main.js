@@ -1,3 +1,5 @@
+const checkpoint = require("@/server/checkpoint").default
+
 module.exports = {
   peers: [],
   addPeer(peer) {
@@ -7,6 +9,10 @@ module.exports = {
       console.log("Conn open");
       conn.on('data', function(data) {
         console.log('Received', data)
+        var cmd = data.cmd
+        if(cmd === 'payment') {
+          checkpoint.recordPayment(data.packet)
+        }
       })
     })
     this.peers.push({
@@ -22,7 +28,6 @@ module.exports = {
   },
   start() {
     this.peer = new Peer({ key: '4rvj8mvhtbq8semi' })
-
     this.peer.on('open', (id) => {
       console.log('My peer ID is: ' + id);
     });

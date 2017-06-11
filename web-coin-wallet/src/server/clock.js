@@ -1,5 +1,5 @@
 module.exports = {
   ts() {
-    return +new Date()
+    return Math.round((+new Date()) / 1000)
   }
 }
