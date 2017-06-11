@@ -65,9 +65,13 @@ var validationHashesCheck = () => {
   for(var k in stakingValidationHashes) {
     var checkpoint = stakingValidationHashes[k]
     if(hashVotes[checkpoint.hash] === undefined) {
-      hashVotes[checkpoint.hash] = 0
+      hashVotes[checkpoint.hash] = {
+        weight: 0
+        signatures: []
+      }
     }
-    hashVotes[checkpoint.hash] += checkpoint.weight
+    hashVotes[checkpoint.hash].weight += checkpoint.weight
+    hashVotes[checkpoint.hash].signatures.push(checkpoint.signature)
   }
   var hashVotesArr = []
   for (var k in hashVotes) {
@@ -87,13 +91,18 @@ var validationHashesCheck = () => {
   delete hashVotes
   delete hashVotesArr
   // Compare against own generated consensus checkpoint, if different, change it with the winning consensus checkpoint
-  var hash = crypto.createHash('sha256').update(exportedCheckpoint).digest('hex')
-  if(hash === winningCheckpointHash) {
+  var exportedCheckpointHash = crypto.createHash('sha256').update(exportedCheckpoint).digest('hex')
+  if(exportedCheckpointHash === winningCheckpointHash) {
     // set checkpoint now
     importConsensusCheckpoint(exportedCheckpoint)
+    // send iic-command
+    server.broadcast({
+      cmd: 'icc',
+      packet: `${hash}|${hashVotes.join("|")}`
+    })
   }
   else {
-    // We were wrong.... In this case, we just get the latest consensus checkpoint when ccp triggers :)
+    // We were wrong.... In this case, we just get the latest consensus checkpoint when icc triggers :)
   }
 }
 
@@ -126,6 +135,11 @@ var stakeCheck = () => {
 }
 
 export default {
+  importConsensusCheckpointFromPeersByHash(packet) {
+    var split = packet.split("|")
+    var hash = split[0]
+    var voters = split.slice(1, split.length)
+  },
   enableStaking(staking) {
     if(staking) {
       if(stakingInterval == -1)
@@ -146,7 +160,7 @@ export default {
       weight: this.calculateWeightOfAddress(splitSig[0])
       checkpoint,
       hash,
-      signature: splitSig[1]
+      signature
     }
   },
   recordPayment(packet) {

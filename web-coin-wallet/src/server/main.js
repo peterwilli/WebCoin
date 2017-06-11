@@ -18,6 +18,9 @@ module.exports = {
         else if(cmd === 'vcc') {
           checkpoint.validateCheckpoint(data.packet, data.signature)
         }
+        else if(cmd === 'icc') {
+          checkpoint.importConsensusCheckpointFromPeersByHash(data.packet)
+        }
       })
     })
     this.connectedPeers.push({
