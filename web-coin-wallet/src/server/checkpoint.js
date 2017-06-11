@@ -50,17 +50,55 @@ var exportCheckpoint = (ts, index) => {
   return `${(ts - config.stakingInterval)}-${ts}|${rows.join("\n")}`
 }
 
-var validateCheckpoint = (checkpoint, signature) => {
-  var hash = checkpoint
-  // TODO: find out a way to make sure what to do with boggled up checkpoints
-}
-
 var voteConsensusCheckpoint = (exportedCheckpoint) => {
-  var hash = crypto.createHash('sha256').update(exportedCheckpoint).digest('hex');
+  var hash = crypto.createHash('sha256').update(exportedCheckpoint).digest('hex')
   server.broadcast({
     cmd: 'vcc',
     packet: `${hash}`
   })
+}
+
+var stakingValidationHashes = {}
+
+var valiationHashesCheck = () => {
+  var hashVotes = {}
+  for(var k in stakingValidationHashes) {
+    var checkpoint = stakingValidationHashes[k]
+    if(hashVotes[checkpoint.hash] === undefined) {
+      hashVotes[checkpoint.hash] = 0
+    }
+    hashVotes[checkpoint.hash] += checkpoint.weight
+  }
+  var hashVotesArr = []
+  for (var k in hashVotes) {
+    var totalHashVoteWeight = hashVotes[k]
+    hashVotesArr.push([k, totalHashVoteWeight])
+  }
+  hashVotesArr.sort((a, b) => {
+    if(a[1] > b[1]) {
+      return -1
+    }
+    if(a[1] < b[1]) {
+      return 1
+    }
+    return 0
+  });
+  winningCheckpointHash = hashVotesArr[0]
+  delete hashVotes
+  var totalWeight = 0
+  for(var peer of server.stakingPeers) {
+    totalWeight += calculateWeightOfAddress(peer.address)
+  }
+  // At least 30% of all previous stakers need to be online, if not, the checkpoint will fail
+  // And transactions will be resend
+  if((winningCheckpointHash[1] / totalWeight) > 0.3) {
+
+  }
+}
+
+var calculateWeightOfAddress = (address) => {
+  // TODO: Make PoSV
+  return consensusCheckpointIndex[address].balance
 }
 
 var stakeCheck = () => {
@@ -99,24 +137,23 @@ export default {
       }
     }
   },
+  calculateWeightOfAddress: calculateWeightOfAddress,
+  validateCheckpoint(checkpoint, signature) {
+    var hash = checkpoint
+    var splitSig = signature.split(":")
+    stakingValidationHashes[address] = {
+      weight: this.calculateWeightOfAddress(splitSig[0])
+      checkpoint,
+      hash,
+      signature: splitSig[1]
+    }
+  },
   recordPayment(packet) {
     var split = packet.split("|")
     var from = split[1]
 
     // Address has to be known, if not known, it has no balance
     if(consensusCheckpointIndex[from] !== undefined) {
-      var sig = split[2]
-      if(transactionsForNextConsensusCheckpoint[sig] !== undefined) {
-        // Don't broadcast and quit immediately, we already have this one.
-        return;
-      }
-      var key = ec.keyFromPublic(consensusCheckpointIndex[from].pubKey, "hex")
-      var hash = crypto.createHash('sha256').update(split[0]).digest('hex')
-      if(!key.verify(hash, sig)) {
-        // Immediately quit after failing signature check against pubkey from consensus checkpoint
-        // Also skipping broadcasting this payment.
-        return;
-      }
       // 0: to, 1: amount, 2: timestamp
       var transaction = split[0].split(":")
       var newBalance = consensusCheckpointIndex[from].balance - transaction[1]

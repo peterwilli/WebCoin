@@ -1,14 +1,16 @@
 const checkpoint = require("@/server/checkpoint").default
+const log = require("@/log")
 
 module.exports = {
-  peers: [],
+  stakingPeers: [],
+  connectedPeers: [],
   addPeer(peer) {
     var conn = this.peer.connect(peer)
     conn.on('open', function() {
       // Receive messages
-      console.log("Conn open");
+      log("Conn open");
       conn.on('data', function(data) {
-        console.log('Received', data)
+        log('Received', data)
         var cmd = data.cmd
         if(cmd === 'payment') {
           checkpoint.recordPayment(data.packet)
@@ -18,7 +20,7 @@ module.exports = {
         }
       })
     })
-    this.peers.push({
+    this.connectedPeers.push({
       id: peer,
       conn: conn
     })
@@ -31,8 +33,8 @@ module.exports = {
       throw new Error("A message only should have 2 keys: packet and cmd")
     }
     msg.signature = `${this.wallet.getAddress()}:${this.wallet.signMessage(msg.cmd + "|" + msg.packet)}`
-    for(var i in this.peers) {
-      var peer = this.peers[i]
+    for(var i in this.connectedPeers) {
+      var peer = this.connectedPeers[i]
       peer.conn.send(msg)
     }
   },
