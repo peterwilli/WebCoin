@@ -1,6 +1,7 @@
 const loader = require("./loader")
 const generator = require("./generator")
 const payment = require('./payment')
+const crypto = require('crypto')
 
 const fs = require("fs")
 
@@ -11,6 +12,18 @@ class Wallet {
 
   pay(to, amount) {
     payment(this, to, amount)
+  }
+
+  getAddress() {
+    return crypto.createHash('sha256').update(new Buffer(this.getPublicKey(), "hex")).digest('base64');
+  }
+
+  getPublicKey() {
+    return this.key.getPublic().encode("hex")
+  }
+
+  signHash(hash) {
+    return new Buffer(this.key.sign(hash).toDER()).toString("hex")
   }
 
   save(path) {
