@@ -13,6 +13,9 @@ module.exports = {
         if(cmd === 'payment') {
           checkpoint.recordPayment(data.packet)
         }
+        else if(cmd === 'vcc') {
+          
+        }
       })
     })
     this.peers.push({

@@ -16,7 +16,6 @@ var validateTransactionAgainstConsensusCheckpoint = (ts, transactionFrom, index)
 
   // It needs to fall in this interval, if it does not, then we discard the transaction
   if(transaction[2] < ts && transaction[2] >= (ts - config.stakingInterval)) {
-    // TODO: export this
     if(index[transaction[0]] === undefined) {
       index[transaction[0]] = { balance: 0 }
     }
@@ -35,12 +34,30 @@ var newConsensusCheckpointIndex = (index) => {
   }
 }
 
-var exportCheckpoint = (index) => {
+var exportCheckpoint = (ts, index) => {
   rows = []
   for(key in index) {
     var obj = index[key]
-    rows.push(obj)
+    rows.push(obj.join(":"))
   }
+  rows.sort((a, b) => {
+    if(a.from > b.from)
+      return -1
+    if(a.from < b.from)
+      return -1
+    return 0
+  })
+  return `${(ts - config.stakingInterval)}-${ts}|${rows.join("\n")}`
+}
+
+var voteConsensusCheckpoint = (wallet, exportedCheckpoint) => {
+  var interval = `${(ts - config.stakingInterval)}-${ts}`
+  var hash = crypto.createHash('sha256').update(exportedCheckpoint).digest('hex');
+  var signature = wallet.signHash(hash);
+  server.broadcast({
+    cmd: 'vcc',
+    packet: `${hash}|${wallet.getAddress()}|${signature}`
+  })
 }
 
 var stakeCheck = () => {
@@ -61,7 +78,7 @@ var stakeCheck = () => {
     transactionsForNextConsensusCheckpoint = {}
 
     removeAnyZeroBalances(newConsensusCheckpointIndex)
-    var exportedCheckpoint = exportCheckpoint(newConsensusCheckpointIndex)
+    var exportedCheckpoint = exportCheckpoint(ts, newConsensusCheckpointIndex)
     voteConsensusCheckpoint(exportedCheckpoint)
   }
 }
@@ -118,9 +135,9 @@ export default {
   makeCheckpointIndex() {
     for(var row of consensusCheckpoint.split("\n")) {
       var split = row.split(":")
-      consensusCheckpointIndex[Wallet.addressFromPubKey(split[0])] = {
-        balance: parseFloat(split[1]),
-        pubKey: split[0]
+      consensusCheckpointIndex[Wallet.addressFromPubKey(split[1])] = {
+        balance: parseFloat(split[2]),
+        pubKey: split[1]
       }
     }
   },
