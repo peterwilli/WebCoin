@@ -10,6 +10,7 @@ var consensusCheckpoint = ""
 var consensusCheckpointIndex = {}
 var transactionsForNextConsensusCheckpoint = {}
 var stakingInterval = -1
+var exportedCheckpoint = null
 
 var validateTransactionAgainstConsensusCheckpoint = (ts, transactionFrom, index) => {
   var { transaction, from } = transactionFrom
@@ -59,8 +60,7 @@ var voteConsensusCheckpoint = (exportedCheckpoint) => {
 }
 
 var stakingValidationHashes = {}
-
-var valiationHashesCheck = () => {
+var validationHashesCheck = () => {
   var hashVotes = {}
   for(var k in stakingValidationHashes) {
     var checkpoint = stakingValidationHashes[k]
@@ -85,14 +85,15 @@ var valiationHashesCheck = () => {
   });
   winningCheckpointHash = hashVotesArr[0]
   delete hashVotes
-  var totalWeight = 0
-  for(var peer of server.stakingPeers) {
-    totalWeight += calculateWeightOfAddress(peer.address)
+  delete hashVotesArr
+  // Compare against own generated consensus checkpoint, if different, change it with the winning consensus checkpoint
+  var hash = crypto.createHash('sha256').update(exportedCheckpoint).digest('hex')
+  if(hash === winningCheckpointHash) {
+    // set checkpoint now
+    importConsensusCheckpoint(exportedCheckpoint)
   }
-  // At least 30% of all previous stakers need to be online, if not, the checkpoint will fail
-  // And transactions will be resend
-  if((winningCheckpointHash[1] / totalWeight) > 0.3) {
-
+  else {
+    // We were wrong.... In this case, we just get the latest consensus checkpoint when ccp triggers :)
   }
 }
 
@@ -119,7 +120,7 @@ var stakeCheck = () => {
     transactionsForNextConsensusCheckpoint = {}
 
     removeAnyZeroBalances(newConsensusCheckpointIndex)
-    var exportedCheckpoint = exportCheckpoint(ts, newConsensusCheckpointIndex)
+    exportedCheckpoint = exportCheckpoint(ts, newConsensusCheckpointIndex)
     voteConsensusCheckpoint(exportedCheckpoint)
   }
 }
@@ -176,6 +177,7 @@ export default {
     for(var row of consensusCheckpoint.split("\n")) {
       var split = row.split(":")
       consensusCheckpointIndex[Wallet.addressFromPubKey(split[1])] = {
+        range: split[0],
         balance: parseFloat(split[2]),
         pubKey: split[1]
       }
