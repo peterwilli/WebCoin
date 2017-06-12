@@ -6,6 +6,7 @@
   "private": true,
   "main"    : "main.js",
   "scripts": {
+    "peer": "./node_modules/.bin/electron .",
     "dev": "./start-gui.sh",
     "start": "node build/dev-server.js",
     "build": "node build/build.js",
