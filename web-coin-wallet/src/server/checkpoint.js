@@ -4,6 +4,7 @@ const crypto = require('crypto')
 const clock = require("@/server/clock")
 const config = require("@/config")
 const log = require("@/log")
+const EventEmitter = require('events');
 
 var consensusCheckpoint = ""
 var consensusCheckpointIndex = {}
@@ -13,10 +14,12 @@ var validationHashesCheckInterval = -1
 var exportedCheckpoint = null
 var winningCheckpointHash = null
 var server = null
+var events = new EventEmitter()
 
 var importConsensusCheckpoint = (checkpoint) => {
   consensusCheckpoint = checkpoint
   makeCheckpointIndex()
+  events.emit('consensus-checkpoint', checkpoint)
 }
 
 var makeCheckpointIndex = () => {
@@ -264,5 +267,6 @@ export default {
   },
   getConsensusCheckpoint() {
     return consensusCheckpoint
-  }
+  },
+  events
 }

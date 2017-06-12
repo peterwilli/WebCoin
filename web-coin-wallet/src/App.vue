@@ -54,6 +54,10 @@ export default {
   },
 
   mounted() {
+    var this_ = this
+    checkpoint.events.on('consensus-checkpoint', function (checkpoint_) {
+      this_.$forceUpdate()
+    })
     checkpoint.enableStaking(true)
     checkpoint.setServer(server)
     server.start()
