@@ -1,6 +1,6 @@
 const clock = require("@/server/clock")
 const crypto = require('crypto')
-const server = require("@/server/main")
+const server = require("@/server/main").default
 
 module.exports = (wallet, to, amount) => {
   // Create the transaction and the hash of it.
@@ -8,5 +8,7 @@ module.exports = (wallet, to, amount) => {
   server.broadcast({
     cmd: 'payment',
     packet: transaction
+  }, {
+    recordSelf: true
   })
 }

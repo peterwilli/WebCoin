@@ -25,7 +25,7 @@ function createWindow() {
 
   // Open the DevTools.
   win.webContents.openDevTools({
-    mode: 'undocked'
+    mode: 'bottom'
   })
 
   // Emitted when the window is closed.

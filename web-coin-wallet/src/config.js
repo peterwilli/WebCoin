@@ -1,4 +1,4 @@
 module.exports = {
-  stakeInterval: 30,
+  stakingInterval: 10,
   totalCoins: 1000000
 }

@@ -1,7 +1,6 @@
 import Wallet from "@/wallet/Wallet"
 const ec = require('@/wallet/ec')
 const crypto = require('crypto')
-const server = require("@/server/main")
 const clock = require("@/server/clock")
 const config = require("@/config")
 const log = require("@/log")
@@ -10,8 +9,30 @@ var consensusCheckpoint = ""
 var consensusCheckpointIndex = {}
 var transactionsForNextConsensusCheckpoint = {}
 var stakingInterval = -1
+var validationHashesCheckInterval = -1
 var exportedCheckpoint = null
 var winningCheckpointHash = null
+var server = null
+
+var importConsensusCheckpoint = (checkpoint) => {
+  consensusCheckpoint = checkpoint
+  makeCheckpointIndex()
+}
+
+var makeCheckpointIndex = () => {
+  var range = consensusCheckpoint.substring(0, consensusCheckpoint.indexOf(":"))
+  var rows = consensusCheckpoint.substring(consensusCheckpoint.indexOf(":") + 1, consensusCheckpoint.length)
+  for(var key in consensusCheckpointIndex) {
+    delete consensusCheckpointIndex[key]
+  }
+  for(var row of rows.split("\n")) {
+    var split = row.split(":")
+    consensusCheckpointIndex[split[0]] = {
+      balance: parseFloat(split[2]),
+      pubKey: split[1]
+    }
+  }
+}
 
 var validateTransactionAgainstConsensusCheckpoint = (ts, transactionFrom, index) => {
   var { transaction, from } = transactionFrom
@@ -21,13 +42,14 @@ var validateTransactionAgainstConsensusCheckpoint = (ts, transactionFrom, index)
     if(index[transaction[0]] === undefined) {
       index[transaction[0]] = { balance: 0 }
     }
-    index[from].balance -= transaction[1]
-    index[transaction[0]].balance += transaction[1]
+    var amount = parseFloat(transaction[1])
+    index[from].balance -= amount
+    index[transaction[0]].balance += amount
   }
 }
 
-var newConsensusCheckpointIndex = (index) => {
-  for(key in index) {
+var removeAnyZeroBalances = (index) => {
+  for(var key in index) {
     var obj = index[key]
     if(obj.balance === 0) {
       // We don't need to remember the pubkey or balance of a 0-balance wallet.
@@ -37,10 +59,10 @@ var newConsensusCheckpointIndex = (index) => {
 }
 
 var exportCheckpoint = (ts, index) => {
-  rows = []
-  for(key in index) {
+  var rows = []
+  for(var key in index) {
     var obj = index[key]
-    rows.push(obj.join(":"))
+    rows.push([key, obj.pubKey || "", obj.balance].join(":"))
   }
   rows.sort((a, b) => {
     if(a.from > b.from)
@@ -49,34 +71,41 @@ var exportCheckpoint = (ts, index) => {
       return 1
     return 0
   })
-  return `${(ts - config.stakingInterval)}-${ts}|${rows.join("\n")}`
+  var ret = `${(ts - config.stakingInterval)}-${ts}:${rows.join("\n")}`
+  return ret
 }
 
-var voteConsensusCheckpoint = (exportedCheckpoint) => {
+var voteConsensusCheckpoint = () => {
   var hash = crypto.createHash('sha256').update(exportedCheckpoint).digest('hex')
-  server.broadcast({
-    cmd: 'vcc',
-    packet: `${hash}`
-  })
+  if(server.wallet !== undefined) {
+    server.broadcast({
+      cmd: 'vcc',
+      packet: `${hash}`
+    }, {
+      recordSelf: true
+    })
+  }
 }
 
 var stakingValidationHashes = {}
 var validationHashesCheck = () => {
+  if(Object.keys(stakingValidationHashes).length === 0) {
+    return;
+  }
+
   var hashVotes = {}
   for(var k in stakingValidationHashes) {
     var checkpoint = stakingValidationHashes[k]
     if(hashVotes[checkpoint.hash] === undefined) {
       hashVotes[checkpoint.hash] = {
         weight: 0
-        signatures: []
       }
     }
     hashVotes[checkpoint.hash].weight += checkpoint.weight
-    hashVotes[checkpoint.hash].signatures.push(checkpoint.signature)
   }
   var hashVotesArr = []
   for (var k in hashVotes) {
-    var totalHashVoteWeight = hashVotes[k]
+    var totalHashVoteWeight = hashVotes[k].weight
     hashVotesArr.push([k, totalHashVoteWeight])
   }
   hashVotesArr.sort((a, b) => {
@@ -88,9 +117,14 @@ var validationHashesCheck = () => {
     }
     return 0
   });
-  winningCheckpointHash = hashVotesArr[0]
-  delete hashVotes
-  delete hashVotesArr
+  winningCheckpointHash = hashVotesArr[0][0]
+
+  // TODO: make better conditions
+  var notReadyToTakeVote = winningCheckpointHash === undefined
+  if(notReadyToTakeVote) {
+    return
+  }
+  log(`Figured out winning hash: ${winningCheckpointHash}, based on the following packet:\n`, winningCheckpointHash)
   // Compare against own generated consensus checkpoint, if different, change it with the winning consensus checkpoint
   var exportedCheckpointHash = crypto.createHash('sha256').update(exportedCheckpoint).digest('hex')
   if(exportedCheckpointHash === winningCheckpointHash) {
@@ -100,11 +134,15 @@ var validationHashesCheck = () => {
   else {
     // We were wrong (or we had an old checkpoint because wallet was offline)
     // Ask for the full balance list matching the winning hash
+    console.warn(`exportedCheckpointHash(${exportedCheckpointHash}) is not the same as winningCheckpointHash(${winningCheckpointHash})`);
     server.broadcast({
       cmd: 'rcc',
       packet: winningCheckpointHash
+    }, {
+      allowZeroBalance: true
     })
   }
+  stakingValidationHashes = {}
 }
 
 var calculateWeightOfAddress = (address) => {
@@ -112,52 +150,74 @@ var calculateWeightOfAddress = (address) => {
   return consensusCheckpointIndex[address].balance
 }
 
+window.consensusCheckpointIndex = consensusCheckpointIndex
+
+var stakePause = -1
 var stakeCheck = () => {
   var ts = clock.ts()
-  if(ts % config.stakingInterval) {
+  if(stakePause-- >= 0) {
+    return;
+  }
+  if((ts % config.stakingInterval) === 0) {
+    stakePause = Math.round(1200 / 10)
     log("Staking tick")
     // Note that we don't have to sort here, since the order of the transactions don't matter.
     // As you can't send money you received from another party until after the next consensus checkpoint.
     // So all transactions in 1 checkpoint are all independent.
-    var newConsensusCheckpointIndex = Object.assign({}, consensusCheckpointIndex)
-    for(key in transactionsForNextConsensusCheckpoint) {
-      // 0: to, 1: amount, 2: timestamp
-      var transactionFrom = transactionsForNextConsensusCheckpoint[key]
-      validateTransactionAgainstConsensusCheckpoint(ts, transactionFrom, newConsensusCheckpointIndex)
+    if(Object.keys(transactionsForNextConsensusCheckpoint).length > 0) {
+      var newConsensusCheckpointIndex = Object.assign({}, consensusCheckpointIndex)
+      for(var key in transactionsForNextConsensusCheckpoint) {
+        // 0: to, 1: amount, 2: timestamp
+        var transactionFrom = transactionsForNextConsensusCheckpoint[key]
+        validateTransactionAgainstConsensusCheckpoint(ts, transactionFrom, newConsensusCheckpointIndex)
+      }
+
+      // Remove all pending transactions
+      transactionsForNextConsensusCheckpoint = {}
+      // Remove any zero-balanced addresses
+      removeAnyZeroBalances(newConsensusCheckpointIndex)
+
+      // Export and stake
+      exportedCheckpoint = exportCheckpoint(ts, newConsensusCheckpointIndex)
+      voteConsensusCheckpoint()
     }
-
-    // Remove all pending transactions
-    transactionsForNextConsensusCheckpoint = {}
-
-    removeAnyZeroBalances(newConsensusCheckpointIndex)
-    exportedCheckpoint = exportCheckpoint(ts, newConsensusCheckpointIndex)
-    voteConsensusCheckpoint(exportedCheckpoint)
   }
 }
 
 export default {
+  setServer(server_) {
+    server = server_
+  },
   requestConsensusCheckpoint(conn, hash) {
-    conn.send({
+    server.sendMessageIndividually({
       cmd: 'icc',
       packet: consensusCheckpoint
-    })
+    }, conn)
   },
+  importConsensusCheckpoint,
   importConsensusCheckpointFromPeers(packet) {
     var hash = crypto.createHash('sha256').update(packet).digest('hex')
+    log("Trying to import new consensusCheckpoint from peer: \n" + packet)
     if(hash === winningCheckpointHash) {
       // This is the one
       importConsensusCheckpoint(packet)
+    }
+    else {
+      console.error(`Hash is not equal! ${hash} vs ${winningCheckpointHash}`);
     }
   },
   enableStaking(staking) {
     if(staking) {
       if(stakingInterval == -1)
         stakingInterval = setInterval(stakeCheck, 10)
+        validationHashesCheckInterval = setInterval(validationHashesCheck, 1000)
     }
     else {
       if(stakingInterval > -1) {
         clearInterval(stakingInterval)
+        clearInterval(validationHashesCheckInterval)
         stakingInterval = -1
+        validationHashesCheckInterval = -1
       }
     }
   },
@@ -165,21 +225,21 @@ export default {
   validateCheckpoint(checkpoint, signature) {
     var hash = checkpoint
     var splitSig = signature.split(":")
+    var address = splitSig[0]
     stakingValidationHashes[address] = {
-      weight: this.calculateWeightOfAddress(splitSig[0])
+      weight: this.calculateWeightOfAddress(splitSig[0]),
       checkpoint,
       hash,
       signature
     }
   },
-  recordPayment(packet) {
-    var split = packet.split("|")
-    var from = split[1]
+  recordPayment(packet, signature) {
+    var from = signature.split(":")[0]
 
     // Address has to be known, if not known, it has no balance
     if(consensusCheckpointIndex[from] !== undefined) {
       // 0: to, 1: amount, 2: timestamp
-      var transaction = split[0].split(":")
+      var transaction = packet.split(":")
       var newBalance = consensusCheckpointIndex[from].balance - transaction[1]
       if(newBalance >= 0) {
         // No negative balance, log the final transaction
@@ -190,22 +250,11 @@ export default {
       }
     }
     // Now broadcast to our peers as well.
-    server.broadcast({ cmd: payment, packet: packet })
-  },
-  importConsensusCheckpoint(checkpoint) {
-    consensusCheckpoint = checkpoint
-    this.makeCheckpointIndex()
-  },
-  makeCheckpointIndex() {
-    for(var row of consensusCheckpoint.split("\n")) {
-      var split = row.split(":")
-      consensusCheckpointIndex[Wallet.addressFromPubKey(split[1])] = {
-        range: split[0],
-        balance: parseFloat(split[2]),
-        pubKey: split[1]
-      }
+    if(server.wallet !== undefined) {
+      server.broadcast({ cmd: 'payment', packet: packet })
     }
   },
+
   getBalanceForAddress(address) {
     if(consensusCheckpointIndex[address] === undefined) {
       return 0

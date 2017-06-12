@@ -9,9 +9,10 @@
       <b>Balance: </b> <span>{{ checkpoint.getBalanceForAddress(wallet.getAddress()) }}</span>
     </div>
     <b>Add peer</b>
-    <input type="text" v-model="this.peerId" placeholder="peer id" />
+    <input type="text" v-model="peerId" placeholder="peer id" />
     <input type="button" @click="addPeer()" value="add peer" />
     <br />
+    <b>Address to pay to: </b> <input type="text" v-model="to" />
     <input type="button" @click="testPay()" value="test pay" />
   </div>
 </template>
@@ -21,7 +22,7 @@ import Wallet from "@/wallet/Wallet"
 
 const config = require("@/config")
 const log = require("@/log")
-const server = require("@/server/main")
+const server = require("@/server/main").default
 const checkpoint = require("@/server/checkpoint").default
 // Test
 checkpoint.importConsensusCheckpoint("0-30:3rMzRa7pqpg9UjAFyvc6LPDk9eR/GQh86IdB5/aks9Y=:04e6c8420be50a8976c02876f4e6ab19d1697ae6f9672506875fe8d398ff7d14fb84acf0853e5937248d52a073da52063dcc8868bf3156ac77cc1f5dcf9c5b4760:" + config.totalCoins)
@@ -29,10 +30,13 @@ checkpoint.importConsensusCheckpoint("0-30:3rMzRa7pqpg9UjAFyvc6LPDk9eR/GQh86IdB5
 export default {
   name: 'app',
   data() {
+    var wallet = Wallet.generate()
+    server.setWallet(wallet)
     return {
       checkpoint: checkpoint,
-      wallet: Wallet.generate(),
-      peerId: ""
+      wallet: wallet,
+      peerId: "",
+      to: ""
     }
   },
   methods: {
@@ -42,7 +46,7 @@ export default {
       server.setWallet(this.wallet)
     },
     testPay() {
-      this.wallet.pay("todo", 10)
+      this.wallet.pay(this.to, 10)
     },
     addPeer() {
       server.addPeer(this.peerId)
@@ -50,6 +54,8 @@ export default {
   },
 
   mounted() {
+    checkpoint.enableStaking(true)
+    checkpoint.setServer(server)
     server.start()
   }
 }
