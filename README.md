@@ -15,6 +15,5 @@ There is a test wallet file int he pre-pro directory that you can open to get 1 
 # Roadmap
 Please note that WebCoin is heavily alpha, in fact you can't even call it that. This is started as a weekend project to build my own cryptocurrency in just 2 days. The biggest priority was that the cryptography behind it worked. After that, I move to other things, like writing tests.
 
-- implement elliptic curve with secp256k1 (for it's awesome properties such as public key recovery when verifying signatures)
 - implement peer-discovery (with DHT, for instance)
 - clock synchronization
