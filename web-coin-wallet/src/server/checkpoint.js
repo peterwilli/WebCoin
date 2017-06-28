@@ -22,22 +22,15 @@ var importConsensusCheckpoint = (checkpoint) => {
 }
 
 var makeCheckpointIndex = () => {
-  var range = consensusCheckpoint.substring(0, consensusCheckpoint.indexOf(":"))
-  var rows = consensusCheckpoint.substring(consensusCheckpoint.indexOf(":") + 1, consensusCheckpoint.length)
   for(var key in consensusCheckpointIndex) {
     delete consensusCheckpointIndex[key]
   }
-  //checkpoint.importConsensusCheckpoint(`0:${config.genesisAddress}:${config.totalCoins}:${config.genesisSignature}`)
-  for(var row of rows.split("\n")) {
-    console.log(row);
+  for(var row of consensusCheckpoint.split("\n")) {
     var split = row.split(":")
-    console.log(split);
     consensusCheckpointIndex[split[1]] = {
       balance: parseFloat(split[2])
     }
   }
-  console.log(consensusCheckpointIndex);
-
 }
 
 var validateTransactionAgainstConsensusCheckpoint = (ts, transactionFrom, index) => {
