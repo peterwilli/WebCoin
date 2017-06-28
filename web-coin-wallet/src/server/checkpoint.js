@@ -27,13 +27,17 @@ var makeCheckpointIndex = () => {
   for(var key in consensusCheckpointIndex) {
     delete consensusCheckpointIndex[key]
   }
+  //checkpoint.importConsensusCheckpoint(`0:${config.genesisAddress}:${config.totalCoins}:${config.genesisSignature}`)
   for(var row of rows.split("\n")) {
+    console.log(row);
     var split = row.split(":")
-    consensusCheckpointIndex[split[0]] = {
-      balance: parseFloat(split[2]),
-      pubKey: split[1]
+    console.log(split);
+    consensusCheckpointIndex[split[1]] = {
+      balance: parseFloat(split[2])
     }
   }
+  console.log(consensusCheckpointIndex);
+
 }
 
 var validateTransactionAgainstConsensusCheckpoint = (ts, transactionFrom, index) => {

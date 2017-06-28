@@ -93,6 +93,9 @@ export default {
   },
   setWallet (wallet) {
     this.wallet = wallet
+    if(window.DEBUG) {
+      window.DEBUG.lastWallet = wallet
+    }
   },
   start() {
     this.peer = new Peer({ key: '4rvj8mvhtbq8semi' })
