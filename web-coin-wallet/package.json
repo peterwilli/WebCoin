@@ -4,7 +4,7 @@
   "description": "WebCoin Wallet",
   "author": "Peter Willemsen <peter@codebuffet.co>",
   "private": true,
-  "main"    : "main.js",
+  "main": "main.js",
   "scripts": {
     "peer": "./node_modules/.bin/electron .",
     "dev": "./start-gui.sh",
@@ -15,7 +15,10 @@
     "test": "npm run unit && npm run e2e"
   },
   "dependencies": {
+    "bitcoinjs-lib": "^3.1.0",
+    "bitcoinjs-message": "^1.0.1",
     "electron": "^1.6.10",
+    "secp256k1": "^3.3.0",
     "vue": "^2.3.3",
     "vue-router": "^2.3.1"
   },

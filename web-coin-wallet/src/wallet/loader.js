@@ -1,7 +1,7 @@
-const ec = require('./ec');
 const fs = require('fs');
+const bitcoin = require('bitcoinjs-lib')
 
 module.exports = (walletPath) => {
-  var data = fs.readFileSync(walletPath, 'binary')
-  return ec.keyFromPrivate(new Buffer(data, "binary").toString("hex"))
+  var data = fs.readFileSync(walletPath, 'binary').toString('base64')
+  return bitcoin.ECPair.fromWIF(data)
 }

@@ -1,5 +1,4 @@
 import Wallet from "@/wallet/Wallet"
-const ec = require('@/wallet/ec')
 const crypto = require('crypto')
 const clock = require("@/server/clock")
 const config = require("@/config")

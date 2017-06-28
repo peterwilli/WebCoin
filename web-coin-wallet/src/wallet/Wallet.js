@@ -2,7 +2,7 @@ const loader = require("./loader")
 const generator = require("./generator")
 const payment = require('./payment')
 const crypto = require('crypto')
-
+const bitcoin = require('bitcoinjs-lib')
 const fs = require("fs")
 
 class Wallet {
@@ -19,20 +19,20 @@ class Wallet {
   }
 
   getPublicKey() {
-    return this.key.getPublic().encode("hex")
+    return this.key.getPublicKeyBuffer().toString('hex')
   }
 
   signHash(hash) {
-    return new Buffer(this.key.sign(hash).toDER()).toString("hex")
+    return this.key.sign(hash).toString("hex")
   }
 
   signMessage(msg) {
     var hash = crypto.createHash('sha256').update(msg).digest('hex')
-    return new Buffer(this.key.sign(hash).toDER()).toString("hex")
+    return signHash(hash)
   }
 
   save(path) {
-    fs.writeFile(path, new Buffer(this.key.getPrivate().toJSON(), "hex"), function(err) {
+    fs.writeFile(path, new Buffer(this.key.toWIF(), "base64"), function(err) {
         if(err) {
             return console.log(err);
         }
@@ -42,7 +42,8 @@ class Wallet {
   }
 
   static addressFromPubKey(pubKey) {
-    return crypto.createHash('sha256').update(new Buffer(pubKey, "hex")).digest('base64')
+    var keyPair = bitcoin.ECPair.fromPublicKeyBuffer(new Buffer(pubKey, 'hex'))
+    return keyPair.getAddress()
   }
 
   static generate() {

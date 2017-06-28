@@ -1,7 +1,7 @@
-// Generate keys
-const ec = require('./ec');
+const bitcoin = require('bitcoinjs-lib')
 
+// Generate keys
 module.exports = () => {
-  var key = ec.genKeyPair();
-  return key;
+  var keyPair = bitcoin.ECPair.makeRandom()
+  return keyPair
 }

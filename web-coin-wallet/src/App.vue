@@ -25,7 +25,7 @@ const log = require("@/log")
 const server = require("@/server/main").default
 const checkpoint = require("@/server/checkpoint").default
 // Test
-checkpoint.importConsensusCheckpoint("0-30:3rMzRa7pqpg9UjAFyvc6LPDk9eR/GQh86IdB5/aks9Y=:04e6c8420be50a8976c02876f4e6ab19d1697ae6f9672506875fe8d398ff7d14fb84acf0853e5937248d52a073da52063dcc8868bf3156ac77cc1f5dcf9c5b4760:" + config.totalCoins)
+checkpoint.importConsensusCheckpoint("1:3rMzRa7pqpg9UjAFyvc6LPDk9eR/GQh86IdB5/aks9Y=:04e6c8420be50a8976c02876f4e6ab19d1697ae6f9672506875fe8d398ff7d14fb84acf0853e5937248d52a073da52063dcc8868bf3156ac77cc1f5dcf9c5b4760:" + config.totalCoins)
 
 export default {
   name: 'app',
