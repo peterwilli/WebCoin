@@ -4,9 +4,11 @@ const clock = require("@/server/clock")
 const config = require("@/config")
 const log = require("@/log")
 const EventEmitter = require('events');
+const networks = require('@/server/networks')
 
 var consensusCheckpoint = ""
 var consensusCheckpointIndex = {}
+var pairsForNextConsensusCheckPoint = {}
 var transactionsForNextConsensusCheckpoint = {}
 var stakingInterval = -1
 var validationHashesCheckInterval = -1
@@ -37,13 +39,15 @@ var validateTransactionAgainstConsensusCheckpoint = (ts, transactionFrom, index)
   var { transaction, from } = transactionFrom
 
   // It needs to fall in this interval, if it does not, then we discard the transaction
-  if(transaction[2] < ts && transaction[2] >= (ts - config.stakingInterval)) {
-    if(index[transaction[0]] === undefined) {
-      index[transaction[0]] = { balance: 0 }
+  if(transaction[0] === clock.getBlockNumber()) {
+    var txId = this.txIdFromString(transaction.join(':'))
+    if(pairsForNextConsensusCheckPoint[txId] === undefined) {
+      pairsForNextConsensusCheckPoint[txId] = {}
     }
-    var amount = parseFloat(transaction[1])
-    index[from].balance -= amount
-    index[transaction[0]].balance += amount
+    var amount = parseFloat(transaction[2])
+    var to = transaction[1]
+    pairsForNextConsensusCheckPoint[txId][from] = consensusCheckpointIndex[from].balance - amount
+    pairsForNextConsensusCheckPoint[txId][to] = consensusCheckpointIndex[to].balance + amount
   }
 }
 
@@ -166,13 +170,14 @@ var stakeCheck = () => {
     if(Object.keys(transactionsForNextConsensusCheckpoint).length > 0) {
       var newConsensusCheckpointIndex = Object.assign({}, consensusCheckpointIndex)
       for(var key in transactionsForNextConsensusCheckpoint) {
-        // 0: to, 1: amount, 2: timestamp
+        // 0: block number, 1: to, 2: amount
         var transactionFrom = transactionsForNextConsensusCheckpoint[key]
         validateTransactionAgainstConsensusCheckpoint(ts, transactionFrom, newConsensusCheckpointIndex)
       }
 
       // Remove all pending transactions
       transactionsForNextConsensusCheckpoint = {}
+
       // Remove any zero-balanced addresses
       removeAnyZeroBalances(newConsensusCheckpointIndex)
 
@@ -232,6 +237,11 @@ export default {
       signature
     }
   },
+  txIdFromString(tx) {
+    var signer = crypto.createHmac('sha256', new Buffer(networks.webcoin.txPrefix, 'ascii'));
+    var txId = signer.update(tx).digest('base64');
+    return txId
+  },
   recordPayment(packet, signature) {
     var from = signature.split(":")[0]
 
@@ -239,7 +249,8 @@ export default {
     if(consensusCheckpointIndex[from] !== undefined) {
       // 0: to, 1: amount, 2: timestamp
       var transaction = packet.split(":")
-      var newBalance = consensusCheckpointIndex[from].balance - transaction[1]
+      var to = transaction[1]
+      var newBalance = consensusCheckpointIndex[from].balance - parseFloat(transaction[2])
       if(newBalance >= 0) {
         // No negative balance, log the final transaction
         // We use from address to make sure we don't log this transaction twice, but also any following transactions in this block.
